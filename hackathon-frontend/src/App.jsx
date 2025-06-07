@@ -1,88 +1,74 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useAuth0 } from '@auth0/auth0-react';
+import { useEffect } from 'react';
 
-const COLORS = [
-  { name: "Red", value: "bg-red-500" },
-  { name: "Blue", value: "bg-blue-500" },
-  { name: "Green", value: "bg-green-500" },
-  { name: "Yellow", value: "bg-yellow-400" },
-];
-
-export default function App() {
-  const [score, setScore] = useState(0);
-  const [targetColor, setTargetColor] = useState("");
-  const [shuffledColors, setShuffledColors] = useState([]);
-  const [status, setStatus] = useState(""); // correct | wrong | ""
-  const [shake, setShake] = useState(false);
+function App() {
+  const {
+    loginWithRedirect,
+    logout,
+    isAuthenticated,
+    user,
+    isLoading,
+    getAccessTokenSilently,
+  } = useAuth0();
 
   useEffect(() => {
-    pickNewTarget();
-  }, []);
+    const saveUser = async () => {
+      try {
+        const token = await getAccessTokenSilently();
 
-  const pickNewTarget = () => {
-    const shuffled = COLORS.sort(() => 0.5 - Math.random());
-    setShuffledColors([...shuffled]);
-    setTargetColor(shuffled[Math.floor(Math.random() * shuffled.length)].name);
-    setStatus("");
-  };
+        const res = await fetch('http://localhost:5000/api/auth/save-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`, // ✅ Auth0 token passed correctly
+          },
+          body: JSON.stringify({
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+            sub: user.sub,
+          }),
+        });
 
-  const handleGuess = (name) => {
-    if (name === targetColor) {
-      setStatus("correct");
-      setScore(score + 1);
-      setTimeout(pickNewTarget, 1000);
-    } else {
-      setStatus("wrong");
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+        const data = await res.json();
+        console.log('✅ User saved:', data);
+      } catch (err) {
+        console.error('❌ Error saving user:', err);
+      }
+    };
+
+    if (isAuthenticated) {
+      saveUser();
     }
-  };
+  }, [isAuthenticated, getAccessTokenSilently, user]);
+
+  if (isLoading) return <h2>Loading...</h2>;
 
   return (
-    <div className={`min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-300 to-pink-200 transition-all duration-300 ${shake ? "animate-shake" : ""}`}>
-      <div className="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full text-center">
-        <h1 className="text-3xl font-extrabold mb-2 text-indigo-700">🎨 Color Match Master</h1>
-        <p className="text-lg text-gray-600 mb-6">
-          Match the color: <span className="font-bold text-xl text-indigo-900">{targetColor}</span>
-        </p>
-
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {shuffledColors.map((color, index) => (
-            <motion.div
-              key={index}
-              whileTap={{ scale: 0.9 }}
-              whileHover={{ scale: 1.05 }}
-              onClick={() => handleGuess(color.name)}
-              className={`cursor-pointer h-24 rounded-xl ${color.value} transition duration-300`}
-            />
-          ))}
-        </div>
-
-        <AnimatePresence>
-          {status === "correct" && (
-            <motion.p
-              className="text-green-600 font-bold text-xl"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
-              ✅ Correct!
-            </motion.p>
-          )}
-          {status === "wrong" && (
-            <motion.p
-              className="text-red-500 font-bold text-xl"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-            >
-              ❌ Wrong! Try again.
-            </motion.p>
-          )}
-        </AnimatePresence>
-
-        <p className="mt-4 text-sm text-gray-500">Your Score: <span className="font-semibold">{score}</span></p>
-      </div>
+    <div className="h-screen flex flex-col items-center justify-center space-y-4">
+      {!isAuthenticated ? (
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+          onClick={() => loginWithRedirect()}
+        >
+          Log in
+        </button>
+      ) : (
+        <>
+          <p>Welcome, {user.name}</p>
+          <img src={user.picture} className="w-16 rounded-full" alt="User Avatar" />
+          <button
+            className="bg-red-600 text-white px-4 py-2 rounded"
+            onClick={() =>
+              logout({ logoutParams: { returnTo: window.location.origin } })
+            }
+          >
+            Log out
+          </button>
+        </>
+      )}
     </div>
   );
 }
+
+export default App;
