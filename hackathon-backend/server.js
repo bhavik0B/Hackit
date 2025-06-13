@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
+import teamRoutes from './routes/teamRoutes.js';
 import { expressjwt } from "express-jwt";
 import jwks from "jwks-rsa";
 
@@ -31,6 +32,7 @@ const checkJwt = expressjwt({
 
 // Protect all /api/auth routes
 app.use('/api/auth', checkJwt, authRoutes);
+app.use('/api/team', teamRoutes);
 
 // Logging middleware
 app.use((req, res, next) => {
